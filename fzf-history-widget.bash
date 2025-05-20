@@ -20,3 +20,4 @@ __fzf_history_widget() {
     fi
   fi
 }
+bind -x '"\C-r": __fzf_history_widget'
