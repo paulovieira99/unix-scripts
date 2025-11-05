@@ -1,24 +1,39 @@
-__fzf_history_widget() {
-  stty sane 2>/dev/null
-  local selected key command
-  selected=$(history | awk '{ lines[NR] = $0 } END { for (i = NR; i > 0; i--) print lines[i] }' \
-    | fzf --exact --tiebreak=index --no-sort --reverse --height=40% \
-      --bind 'ctrl-r:toggle-sort' --expect=ctrl-e \
-      --query="$READLINE_LINE")
-  key=$(head -n1 <<< "$selected")
-  command=$(tail -n1 <<< "$selected" | sed -E 's/ *[0-9]+\*? //')
-  if [[ -n "$command" ]]; then
-    READLINE_LINE="$command"
-    READLINE_POINT=${#READLINE_LINE}
-    if [[ "$key" != "ctrl-e" ]]; then
-      echo "$READLINE_LINE"
-      stty sane 2>/dev/null
-      eval "$READLINE_LINE"
-      READLINE_LINE=""
-      READLINE_POINT=0
-      stty sane 2>/dev/null
-    fi
+# Histórico gigante
+HISTSIZE=100000
+HISTFILESIZE=100000
+HISTFILE=~/.bash_history
+
+# Opções avançadas
+shopt -s histappend       # não sobrescrever o arquivo
+shopt -s cmdhist          # agrupa multiline
+shopt -s lithist          # salva com formatação literal
+
+# Evitar duplicados
+export HISTCONTROL=ignoredups:erasedups
+
+# Salva imediatamente
+PROMPT_COMMAND="history -a; history -c; history -r; $PROMPT_COMMAND"
+
+# Timestamp nos comandos
+export HISTTIMEFORMAT='%F %T '
+
+fzf_history() {
+  local selected
+  selected=$(history | sed -E 's/^[[:space:]]*[0-9]+[[:space:]]+([0-9]{4}-[0-9]{2}-[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}[[:space:]]+)?//' \
+    | awk 'NF' \
+    | sort -u \
+    | fzf --height=50% --layout=reverse --border \
+          --prompt="history> " \
+          --preview 'echo {}' \
+          --preview-window=up:3:wrap \
+          --header 'ENTER: inserir na linha | ESC: cancelar' )
+
+  if [[ -n "$selected" ]]; then
+    READLINE_LINE="$selected"
+    READLINE_POINT=${#selected}
   fi
 }
 
-bind -x '"\C-r": __fzf_history_widget'
+# bind Ctrl+R
+bind -x '"\C-r": fzf_history'
+
